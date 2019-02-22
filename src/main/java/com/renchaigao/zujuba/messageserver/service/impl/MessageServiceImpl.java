@@ -1,227 +1,115 @@
 package com.renchaigao.zujuba.messageserver.service.impl;
 
-import com.alibaba.fastjson.JSONObject;
-import com.renchaigao.zujuba.dao.Store;
-import com.renchaigao.zujuba.dao.User;
-import com.renchaigao.zujuba.dao.mapper.StoreMapper;
-import com.renchaigao.zujuba.dao.mapper.UserMapper;
 import com.renchaigao.zujuba.domain.response.RespCode;
 import com.renchaigao.zujuba.domain.response.ResponseEntity;
-import com.renchaigao.zujuba.mongoDB.info.AddressInfo;
-import com.renchaigao.zujuba.mongoDB.info.Photo;
-import com.renchaigao.zujuba.mongoDB.info.store.*;
-import com.renchaigao.zujuba.mongoDB.info.store.BusinessPart.StoreBusinessInfo;
-import com.renchaigao.zujuba.mongoDB.info.store.EquipmentPart.StoreEquipmentInfo;
-import com.renchaigao.zujuba.mongoDB.info.store.GoodsPart.StorePackageInfo;
-import com.renchaigao.zujuba.mongoDB.info.store.HardwarePart.StoreHardwareInfo;
-import com.renchaigao.zujuba.storeserver.service.StoreService;
-import normal.dateUse;
+import com.renchaigao.zujuba.messageserver.service.MessageService;
+import com.renchaigao.zujuba.mongoDB.info.GroupMessages;
+import com.renchaigao.zujuba.mongoDB.info.message.MessageContent;
+import com.renchaigao.zujuba.mongoDB.info.team.TeamInfo;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import store.DistanceFunc;
 
-import java.io.*;
-import java.util.*;
+import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 @Service
-public class MessageServiceImpl implements StoreService {
+public class MessageServiceImpl implements MessageService {
 
     private static Logger logger = Logger.getLogger(MessageServiceImpl.class);
 
-    @Autowired
-    StoreMapper storeMapper;
+    @Resource(name = "messageMongoTemplate")
+    MongoTemplate messageMongoTemplate;
+
+    @Resource(name = "normalMongoTemplate")
+    MongoTemplate normalMongoTemplate;
 
     @Autowired
-    UserMapper userMapper;
-
-    @Autowired
-    MongoTemplate mongoTemplate;
-
-    /**********************************************
-     * 功能：生成系统下 各用户对应的recording 目录
-     * 入参：用户id  userId
-     **********************************************/
-    private String creatFilePathOnservice(String userId) {
-        File file = new File("/fpfolder/recording/users/" + userId);
-        if (!file.exists())
-            file.mkdirs();
-        return "/fpfolder/recording/users/" + userId.toString() + "/";
-    }
-
-    private String creatPhotoFilePath(String userId, String storeId) {
-        String path = "/fpfolder/recording/users/" + userId + "/" + storeId;
-        File file = new File(path);
-        if (!file.exists())
-            file.mkdirs();
-        return path + "/";
-    }
-
-//    @Override
-//    public ResponseEntity addPic(MultipartFile file) {
-//        String filePathOnService = creatFilePathOnservice(1);
-//        if (!file.isEmpty()) {
-//            try {
-//                BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(
-//                        new File(filePathOnService + file.getOriginalFilename())));
-//                out.write(file.getBytes());
-//                out.flush();
-//                out.close();
-//            } catch (FileNotFoundException e) {
-//                logger.warn(e);
-//                return new ResponseEntity(RespCode.WARN, e.getMessage());
-//            } catch (IOException eIO) {
-//                logger.warn(eIO);
-//                return new ResponseEntity(RespCode.WARN, eIO.getMessage());
-//            }
-//            return new ResponseEntity(RespCode.SUCCESS);
-//        } else {
-//            return new ResponseEntity(RespCode.EXCEPTION);
-//        }
-//    }
+    private StringRedisTemplate redisClient;
 
     @Override
-    public ResponseEntity addStore(String json, MultipartFile[] photos) {
-        if (null != json) {
-            try {
-                JSONObject storeJsonObject = JSONObject.parseObject(json);
-                StoreInfo storeInfo = JSONObject.parseObject(json, StoreInfo.class);
-                String userId = storeInfo.getOwnerId();
-                String storeId = storeInfo.getId();
-                StorePhotoInfo storePhotoInfo = storeInfo.getStorePhotoInfo();
-                ArrayList<Photo> photoInfoList = new ArrayList<>();
-//                判断file数组不能为空并且长度大于0
-                if (photos != null && photos.length > 0) {
-                    //循环获取file数组中得文件
-                    for (int i = 0; i < photos.length; i++) {
-                        MultipartFile file = photos[i];
-                        //将不同storeID的文件放入不同的以storeID命名的文件夹下；
-                        String filePath = creatPhotoFilePath(userId, storeId)
-                                + file.getOriginalFilename();
+    public ResponseEntity createNewGropuMessageTable(TeamInfo teamInfo) {
+        GroupMessages groupMessages = new GroupMessages();
+        String teamId = teamInfo.getId();
+        groupMessages.setId(teamId);
+//        groupMessages.setId(teamInfo.getId());
+//        mongoTemplate.save(groupMessages);
+        messageMongoTemplate.save(groupMessages, "Group" + teamId);
+        return new ResponseEntity(RespCode.SUCCESS, groupMessages);
+    }
 
-                        logger.info("filePath is " + filePath);
-                        // 转存文件
-                        try {
-                            BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(new File(filePath)));
-                            out.write(file.getBytes());
-                            out.flush();
-                            out.close();
-                        } catch (FileNotFoundException e) {
-                            logger.warn(e);
-                            return new ResponseEntity(RespCode.WARN, e.getMessage());
-                        } catch (IOException eIO) {
-                            logger.warn(eIO);
-                            return new ResponseEntity(RespCode.WARN, eIO.getMessage());
-                        }
-                        Photo photoUse = new Photo();
-                        ArrayList<String> photoPathList = new ArrayList<>();
-                        photoPathList.add(filePath);
-                        photoUse.setOwnerId(storeId);
-                        photoUse.setOwnerClass("D");
-                        photoUse.setPathList(photoPathList);
-                        photoInfoList.add(photoUse);
-                    }
-                    storeInfo.setStoreAllInfoId();
-                    //    StoreAddress	地址信息信息
-                    AddressInfo addressInfo = storeInfo.getAddressInfo();
-                    addressInfo.setStarValue(1);
-                    storeInfo.setAddressInfo(addressInfo);
-                    mongoTemplate.save(addressInfo);
-                    //    StoreTeamInfo	组局信息
-                    StoreTeamInfo storeTeamInfo = storeInfo.getStoreTeamInfo();
-                    mongoTemplate.save(storeTeamInfo);
-//                        StoreShoppingInfo	消费信息
-                    StoreShoppingInfo storeShoppingInfo = storeInfo.getStoreShoppingInfo();
-                    mongoTemplate.save(storeShoppingInfo);
-//                        StoreEvaluationInfo	评价信息
-                    StoreEvaluationInfo storeEvaluationInfo = storeInfo.getStoreEvaluationInfo();
-                    mongoTemplate.save(storeEvaluationInfo);
-                    //    StorePackageInfo	套餐信息
-                    StorePackageInfo storePackageInfo = storeInfo.getStorePackageInfo();
-                    mongoTemplate.save(storePackageInfo);
-                    //    StoreHardwareInfo	环境信息
-                    StoreHardwareInfo storeHardwareInfo = storeInfo.getStoreHardwareInfo();
-                    mongoTemplate.save(storeHardwareInfo);
-                    //    StoreEquipmentInfo	设备信息
-                    StoreEquipmentInfo storeEquipmentInfo = storeInfo.getStoreEquipmentInfo();
-                    mongoTemplate.save(storeEquipmentInfo);
-                    //    StoreIntegrationInfo	积分信息
-                    StoreIntegrationInfo storeIntegrationInfo = storeInfo.getStoreIntegrationInfo();
-                    mongoTemplate.save(storeIntegrationInfo);
-                    //    StoreBusinessInfo	运营信息
-                    StoreBusinessInfo storeBusinessInfo = storeInfo.getStoreBusinessInfo();
-                    mongoTemplate.save(storeBusinessInfo);
-                    //    StorePhotoInfo	图片信息
-                    storePhotoInfo.setStoreAllPhotos(photoInfoList);
-                    mongoTemplate.save(storePhotoInfo);
-                    //    StoreRankInfo  排名信息
-                    StoreRankInfo storeRankInfo = storeInfo.getStoreRankInfo();
-                    mongoTemplate.save(storeRankInfo);
-
-                    storeInfo.setUpTime(dateUse.DateToString(new Date()));
-                    storeInfo.setCreaterId(storeInfo.getOwnerId());
-                    storeInfo.setCreateTime(dateUse.DateToString(new Date()));
-                    storeInfo.setState("S");
-                    storeInfo.setDeleteStyle(false);
-
-                    mongoTemplate.save(storeInfo);
-                    Store store = storeInfo;
-                    storeMapper.insert(store);
-
-                    return new ResponseEntity(RespCode.SUCCESS, storeInfo);
-                } else {
-                    return new ResponseEntity(RespCode.STOREFILEWRONG, json);
-                }
-            } catch (Exception e) {
-                return new ResponseEntity(RespCode.EXCEPTION, e);
-            }
+    private List<MessageContent> GetMessageContentList(String lastTime, String teamId) {
+        List<MessageContent> messageContentList;
+        if (lastTime.equals("0")) {
+            messageContentList = messageMongoTemplate.findAll(MessageContent.class, "Group" + teamId);
         } else {
-            return new ResponseEntity(RespCode.STOREWRONG, json);
+            messageContentList = messageMongoTemplate.find(
+                    Query.query(Criteria.where("sendTime").gt(Long.valueOf(lastTime))),
+                    MessageContent.class, "Group" + teamId);
         }
-    }
+        if (messageContentList.size() > 1) {
+            Collections.sort(messageContentList, new Comparator<MessageContent>() {
+                @Override
+                public int compare(MessageContent o1, MessageContent o2) {
+                    return (int) (o2.getSendTime() - o1.getSendTime());
+                }
+            });
+        }
 
-    //    通过某个城市的code获取该城市所有的StoreInfo信息List；
-    public List<StoreInfo> getCityStoreListByCityCode(String cityCode) {
-        Criteria criteria = Criteria.where("addressInfo.citycode").is(cityCode);
-        try {
-            return mongoTemplate.find(Query.query(criteria), StoreInfo.class);
-        } catch (Exception e) {
-            return null;
-        }
+        if (messageContentList.size() > 0) {
+            if (lastTime.equals("0")) {
+                List<MessageContent> messageContentListret = new ArrayList<>();
+                for (int i = 0; i < messageContentList.size() && i < 15; i++) {
+                    messageContentListret.add(messageContentList.get(i));
+                }
+                return messageContentListret;
+            }
+            return messageContentList;
+        } else return null;
     }
 
     @Override
-    public ResponseEntity getStoreInfoByUserId(String userId) {
-//        通过用户id查询用户的基本数据，获得用户的城市信息city 和 经纬度
-        User user = userMapper.selectByPrimaryKey(userId);
-        AddressInfo userAddress = mongoTemplate.findById(user.getMyAddressId(), AddressInfo.class);
-        String userCityCode = userAddress.getCitycode();
-        Double userX = userAddress.getLatitude(), userY = userAddress.getLongitude();
-//        获取同用户所在城市的所有商铺的信息，并存入redis，保留id、经纬度；
-        List<StoreInfo> storeInfosList = getCityStoreListByCityCode("0755");
-//        计算在城市中所有商铺距离用户的距离，排序；
-        StoreInfo storeInfoUse = new StoreInfo();
-        for (int i = 0; i < storeInfosList.size(); i++) {
-            storeInfoUse = storeInfosList.get(i);
-            storeInfoUse.getAddressInfo().setDistance(DistanceFunc.getDistance
-                    (userX, userY, storeInfoUse.getAddressInfo().getLatitude(), storeInfoUse.getAddressInfo().getLongitude()));
+    public ResponseEntity addMessageInfo(String userid, String teamId, String lasttime, MessageContent messageContent) {
+        messageContent.setSenderId(userid);
+        messageMongoTemplate.save(messageContent, "Group" + teamId);
+        List<MessageContent> messageContentList = GetMessageContentList(lasttime, teamId);
+
+        if (messageContentList != null) {
+            return new ResponseEntity(RespCode.SUCCESS, messageContentList);
         }
-        Collections.sort(storeInfosList, new Comparator<StoreInfo>() {
-            @Override
-            public int compare(StoreInfo o1, StoreInfo o2) {
-//                    从小到大
-                return (int) (o1.getAddressInfo().getDistance() - o2.getAddressInfo().getDistance());
-//                    从大到小
-//                return (int)(o2.getDistance() - o1.getDistance());
-            }
-        });
-//        返回数据给用户前端；
-        return new ResponseEntity(RespCode.SUCCESS, storeInfosList);
-//        return null;
+        return new ResponseEntity(RespCode.WARN, null);
+    }
+
+    @Override
+    public ResponseEntity getMessageInfo(String userid, String teamId, String lasttime) {
+        List<MessageContent> messageContentList = GetMessageContentList(lasttime, teamId);
+        if (messageContentList != null) {
+            return new ResponseEntity(RespCode.SUCCESS, messageContentList);
+        }
+        return new ResponseEntity(RespCode.WARN, null);
+    }
+
+    @Override
+    public ResponseEntity getAllmessageInfo(String userId) {
+
+        return new ResponseEntity(RespCode.SUCCESS, null);
+    }
+
+    @Override
+    public ResponseEntity deleteMessageInfo(String userId, String senderId, String groupId, String messageId) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity recivedOK(String userId, String senderId, String groupId, String messageId) {
+        return null;
     }
 
 }
