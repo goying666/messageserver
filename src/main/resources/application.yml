@@ -4,7 +4,7 @@ server:
 spring:
     datasource:
         name: test
-        url: jdbc:mysql://47.106.149.105:3306/message?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true
+        url: jdbc:mysql://47.106.149.105:3306/zjb?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true
         username: root
         password: 123
         # 使用druid数据源
@@ -31,19 +31,19 @@ spring:
     data:
       mongodb:
         normal:
-          host: 47.106.149.105
-          port: 27017
-  #        uri: mongodb://47.106.149.105:27017
-          username: admin
-          password: 123
           database: zjb
-        message:
           host: 47.106.149.105
           port: 27017
   #        uri: mongodb://47.106.149.105:27017
-          username: admin
-          password: 123
-          database: zjbMS
+#          username: admin
+#          password: 123
+        message:
+          database: message
+          host: 47.106.149.105
+          port: 27017
+  #        uri: mongodb://47.106.149.105:27017
+#          username: admin
+#          password: 123
     redis:
         host: 47.106.149.105
         port: 6379
@@ -56,7 +56,7 @@ spring:
         zookeeper:
             connect: 47.106.149.105:2181
         consumer:
-            group-id: defaultGroup
+            group-id: messageGroup
             key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
             value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
         producer:

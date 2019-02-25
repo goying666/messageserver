@@ -53,7 +53,7 @@ public class UserSendMessageFunctions {
     }
 
     public void NotifyPlayer(MessageContent messageContent){
-        TeamPlayerInfo teamPlayerInfo = messageMongoTemplate.findById(messageContent.getTeamId(),TeamPlayerInfo.class,MongoDBCollectionsName.MONGO_DB_COLLECIONS_NAME_TEAM_PLAYER_INFO);
+        TeamPlayerInfo teamPlayerInfo = normalMongoTemplate.findById(messageContent.getTeamId(),TeamPlayerInfo.class,MongoDBCollectionsName.MONGO_DB_COLLECIONS_NAME_TEAM_PLAYER_INFO);
         ArrayList<PlayerInfo> playerInfoArrayList = teamPlayerInfo.getPlayerArrayList();
         for (PlayerInfo playerInfo : playerInfoArrayList){
             normalMongoTemplate.updateFirst(Query.query(Criteria.where("_id").is(playerInfo.getId())),

@@ -81,8 +81,10 @@ public class CreateNewTeamFunctions {
 
     //        系统发送一个通知给管理员 并 给管理员创建一个message
     public void SendMessageToAdmin(TeamInfo teamInfo) {
-        UserMessagesInfo userMessagesInfo = normalMongoTemplate.findById(teamInfo.getAddressInfo().getOwnerId(), UserMessagesInfo.class,
+        UserMessagesInfo userMessagesInfo = normalMongoTemplate.findById(teamInfo.getAddressInfo().getOwnerId(),UserMessagesInfo.class,
                 MongoDBCollectionsName.MONGO_DB_COLLECIONS_NAME_USER_MESSAGE);
+//        UserMessagesInfo userMessagesInfo = normalMongoTemplate.findById(teamInfo.getAddressInfo().getOwnerId(), UserMessagesInfo.class,
+//                MongoDBCollectionsName.MONGO_DB_COLLECIONS_NAME_USER_MESSAGE);
 //        新增一个系统发送的 messageContent到userMessageInfo内；
         MessageContent messageContent = new MessageContent();
         messageContent.setId(Long.valueOf(userMessagesInfo.getNowSystemMessagesNumber() + 1));
